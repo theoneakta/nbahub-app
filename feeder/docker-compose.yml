@@ -1,13 +1,13 @@
-# Hourly ESPN/nbaapi.com sync into the SQL Server 2005 database used by the IIS version (../iis-sql2005).
+# ESPN/nbaapi.com sync (current season every 4 hours, SYNC_CRON) into the SQL Server 2005 database used by the IIS version (../iis-sql2005).
 services:
-  celtics-feeder:
+  nbahub-feeder:
     build: .
-    image: celtics-feeder:1.0
-    container_name: celtics-feeder
+    image: nbahub-feeder:1.0
+    container_name: nbahub-feeder
     restart: unless-stopped
     env_file: .env
     environment:
-      DB_USER: celtics_feeder
+      DB_USER: nbahub_feeder
       # Season to sync defaults to the current NBA season (end-year). Override with NBA_SEASONS="2027,2026" to sync several.
       # NBA_SEASONS: "2027"
     logging:

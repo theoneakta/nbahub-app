@@ -92,28 +92,28 @@ SELECT 2026, 'BOS', '28', N'Hugo Gonz' + NCHAR(225) + N'lez', 'F', '3.9', '3.4',
 SELECT 2026, 'BOS', '13', N'Ron Harper Jr.',    'F',   '6.2',  '3.8', '0.9', '4432805';
 GO
 -- Web app: IIS app pool identity, read-only
-IF NOT EXISTS (SELECT 1 FROM sys.server_principals WHERE name = N'IIS APPPOOL\Celtics')
-    CREATE LOGIN [IIS APPPOOL\Celtics] FROM WINDOWS WITH DEFAULT_DATABASE = roster_db;
-IF NOT EXISTS (SELECT 1 FROM sys.database_principals WHERE name = N'celtics_web')
-    CREATE USER celtics_web FOR LOGIN [IIS APPPOOL\Celtics];
-GRANT SELECT ON dbo.players TO celtics_web;
-GRANT SELECT ON dbo.mvp_contenders TO celtics_web;
-GRANT SELECT ON dbo.schedule_info TO celtics_web;
-GRANT SELECT ON dbo.teams TO celtics_web;
-GRANT SELECT ON dbo.leaders TO celtics_web;
+IF NOT EXISTS (SELECT 1 FROM sys.server_principals WHERE name = N'IIS APPPOOL\NbaHub')
+    CREATE LOGIN [IIS APPPOOL\NbaHub] FROM WINDOWS WITH DEFAULT_DATABASE = roster_db;
+IF NOT EXISTS (SELECT 1 FROM sys.database_principals WHERE name = N'nbahub_web')
+    CREATE USER nbahub_web FOR LOGIN [IIS APPPOOL\NbaHub];
+GRANT SELECT ON dbo.players TO nbahub_web;
+GRANT SELECT ON dbo.mvp_contenders TO nbahub_web;
+GRANT SELECT ON dbo.schedule_info TO nbahub_web;
+GRANT SELECT ON dbo.teams TO nbahub_web;
+GRANT SELECT ON dbo.leaders TO nbahub_web;
 GO
 -- Feeder (the container in ../feeder): SQL login, data read/write only
-IF NOT EXISTS (SELECT 1 FROM sys.server_principals WHERE name = N'celtics_feeder')
-    CREATE LOGIN celtics_feeder WITH PASSWORD = N'@FEEDER_PW@', DEFAULT_DATABASE = roster_db, CHECK_POLICY = ON, CHECK_EXPIRATION = OFF;
+IF NOT EXISTS (SELECT 1 FROM sys.server_principals WHERE name = N'nbahub_feeder')
+    CREATE LOGIN nbahub_feeder WITH PASSWORD = N'@FEEDER_PW@', DEFAULT_DATABASE = roster_db, CHECK_POLICY = ON, CHECK_EXPIRATION = OFF;
 ELSE
-    ALTER LOGIN celtics_feeder WITH PASSWORD = N'@FEEDER_PW@';
-IF NOT EXISTS (SELECT 1 FROM sys.database_principals WHERE name = N'celtics_feeder')
-    CREATE USER celtics_feeder FOR LOGIN celtics_feeder;
-GRANT SELECT, INSERT, UPDATE, DELETE ON dbo.players TO celtics_feeder;
-GRANT SELECT, INSERT, UPDATE, DELETE ON dbo.mvp_contenders TO celtics_feeder;
-GRANT SELECT, INSERT, UPDATE, DELETE ON dbo.schedule_info TO celtics_feeder;
-GRANT SELECT, INSERT, UPDATE, DELETE ON dbo.teams TO celtics_feeder;
-GRANT SELECT, INSERT, UPDATE, DELETE ON dbo.leaders TO celtics_feeder;
+    ALTER LOGIN nbahub_feeder WITH PASSWORD = N'@FEEDER_PW@';
+IF NOT EXISTS (SELECT 1 FROM sys.database_principals WHERE name = N'nbahub_feeder')
+    CREATE USER nbahub_feeder FOR LOGIN nbahub_feeder;
+GRANT SELECT, INSERT, UPDATE, DELETE ON dbo.players TO nbahub_feeder;
+GRANT SELECT, INSERT, UPDATE, DELETE ON dbo.mvp_contenders TO nbahub_feeder;
+GRANT SELECT, INSERT, UPDATE, DELETE ON dbo.schedule_info TO nbahub_feeder;
+GRANT SELECT, INSERT, UPDATE, DELETE ON dbo.teams TO nbahub_feeder;
+GRANT SELECT, INSERT, UPDATE, DELETE ON dbo.leaders TO nbahub_feeder;
 GO
-SELECT 'players' AS t, COUNT(*) AS n FROM dbo.players UNION ALL SELECT 'logins', COUNT(*) FROM sys.server_principals WHERE name IN (N'IIS APPPOOL\Celtics', N'celtics_feeder');
+SELECT 'players' AS t, COUNT(*) AS n FROM dbo.players UNION ALL SELECT 'logins', COUNT(*) FROM sys.server_principals WHERE name IN (N'IIS APPPOOL\NbaHub', N'nbahub_feeder');
 GO

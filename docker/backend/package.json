@@ -1,7 +1,7 @@
 {
-  "name": "celtics-backend",
+  "name": "nbahub-backend",
   "version": "1.0.0",
-  "description": "API for Celtics Roster Tracker",
+  "description": "API for NBA Hub (Celtics roster tracker)",
   "main": "server.js",
   "scripts": {
     "start": "node server.js"

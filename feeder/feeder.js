@@ -1,4 +1,4 @@
-// NBA Hub feeder: hourly ESPN/nbaapi.com sync into SQL Server 2005 (the IIS version in ../iis-sql2005).
+// NBA Hub feeder: ESPN/nbaapi.com sync (current season every 4 hours) into SQL Server 2005 (the IIS version in ../iis-sql2005).
 // Covers ALL 30 teams for each configured season. For the current season the roster is the live ESPN
 // roster; for a completed season it's everyone who played, from nbaapi. Seasons use the end-year
 // (2027 = the 2026-27 season). Runs on a host with internet access; the IIS/SQL 2005 server stays offline.
@@ -9,7 +9,7 @@ const cron = require('node-cron');
 const db = new sql.ConnectionPool({
   server: process.env.DB_HOST,
   port: 1433,
-  user: process.env.DB_USER || 'celtics_feeder',
+  user: process.env.DB_USER || 'nbahub_feeder',
   password: process.env.DB_PASSWORD,
   database: 'roster_db',
   options: {
@@ -30,6 +30,7 @@ const mvpFallback = ['Victor Wembanyama', 'Shai Gilgeous-Alexander', 'Nikola Jok
 function currentSeasonEndYear(d = new Date()) { return (d.getMonth() + 1) >= 10 ? d.getFullYear() + 1 : d.getFullYear(); }
 const SEASONS = (process.env.NBA_SEASONS || String(process.env.NBA_SEASON || currentSeasonEndYear()))
   .split(',').map(s => parseInt(s.trim(), 10)).filter(Boolean);
+const SYNC_CRON = process.env.SYNC_CRON || '0 */4 * * *';   // every 4 hours
 const sleep = (ms) => new Promise(r => setTimeout(r, ms));
 
 function normalize(name) {
@@ -209,12 +210,12 @@ async function syncTeamSeason(team, season) {
   return roster.length;
 }
 
-async function sync() {
+async function sync(seasons = SEASONS) {
   let teams;
   try { teams = await fetchTeams(); } catch (err) { console.error('team list fetch failed:', err.message); return; }
-  console.log(`=== Sync @ ${new Date().toISOString()} | ${teams.length} teams x seasons [${SEASONS.join(', ')}] ===`);
+  console.log(`=== Sync @ ${new Date().toISOString()} | ${teams.length} teams x seasons [${seasons.join(', ')}] ===`);
   for (const t of teams) { try { await upsertTeam(t); } catch (err) { console.error(`  team ${t.abbr} meta failed: ${err.message}`); } }
-  for (const season of SEASONS) {
+  for (const season of seasons) {
     let players = 0, done = 0;
     for (const t of teams) { players += await syncTeamSeason(t, season); done++; await sleep(120); }
     const { contenders, leaders } = seasonAwards(season, await fetchLeague(season), await fetchAdvanced(season));
@@ -233,6 +234,8 @@ async function sync() {
     try { await db.connect(); console.log('Connected:', (await q('SELECT @@VERSION AS v')).recordset[0].v.split('\n')[0]); break; }
     catch (err) { console.error(`DB connect failed (${i}): ${err.message}`); await new Promise(r => setTimeout(r, Math.min(60, 5 * i) * 1000)); }
   }
-  await sync();
-  cron.schedule('0 * * * *', sync);
+  await sync();   // startup: every season in NBA_SEASONS, which backfills completed ones
+  // Scheduled: the current season only (completed seasons don't change). Evaluated at each run, so it rolls over in October.
+  cron.schedule(SYNC_CRON, () => sync([currentSeasonEndYear()]));
+  console.log(`Scheduled: current season on "${SYNC_CRON}" (${process.env.TZ || 'UTC'})`);
 })();

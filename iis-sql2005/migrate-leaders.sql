@@ -14,6 +14,6 @@ GO
 IF NOT EXISTS (SELECT 1 FROM sys.indexes WHERE name = 'UX_leaders' AND object_id = OBJECT_ID('dbo.leaders'))
     CREATE UNIQUE INDEX UX_leaders ON dbo.leaders(season, category);
 GO
-GRANT SELECT ON dbo.leaders TO celtics_web;
-GRANT SELECT, INSERT, UPDATE, DELETE ON dbo.leaders TO celtics_feeder;
+GRANT SELECT ON dbo.leaders TO nbahub_web;
+GRANT SELECT, INSERT, UPDATE, DELETE ON dbo.leaders TO nbahub_feeder;
 GO

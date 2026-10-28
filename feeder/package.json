@@ -1,7 +1,7 @@
 {
-  "name": "celtics-feeder",
+  "name": "nbahub-feeder",
   "version": "1.0.0",
-  "description": "Hourly ESPN/nbaapi sync into SQL Server 2005 for the IIS version of Celtics Hub",
+  "description": "ESPN/nbaapi sync (current season every 4 hours) into SQL Server 2005 for the IIS version of NBA Hub",
   "main": "feeder.js",
   "private": true,
   "dependencies": {

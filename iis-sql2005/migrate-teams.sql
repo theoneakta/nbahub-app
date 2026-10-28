@@ -44,8 +44,8 @@ IF NOT EXISTS (SELECT 1 FROM sys.indexes WHERE name = 'UX_schedule_season_team' 
     CREATE UNIQUE INDEX UX_schedule_season_team ON dbo.schedule_info(season, team);
 GO
 -- read access for the web app
-GRANT SELECT ON dbo.teams TO celtics_web;
-GRANT SELECT, INSERT, UPDATE, DELETE ON dbo.teams TO celtics_feeder;
+GRANT SELECT ON dbo.teams TO nbahub_web;
+GRANT SELECT, INSERT, UPDATE, DELETE ON dbo.teams TO nbahub_feeder;
 GO
 SELECT 'players' AS t, season, team, COUNT(*) AS n FROM dbo.players GROUP BY season, team
 UNION ALL SELECT 'teams', NULL, NULL, COUNT(*) FROM dbo.teams

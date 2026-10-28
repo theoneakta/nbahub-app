@@ -2,7 +2,7 @@ services:
   # 1. DATABASE: PostgreSQL
   db:
     image: postgres:15-alpine
-    container_name: celtics_db
+    container_name: nbahub_db
     restart: always
     environment:
       POSTGRES_USER: admin
@@ -15,7 +15,7 @@ services:
   # 2. BACKEND: Node.js API
   backend:
     build: ./backend
-    container_name: celtics_api
+    container_name: nbahub_api
     restart: always
     depends_on:
       - db
@@ -31,7 +31,7 @@ services:
   # 3. FRONTEND: Nginx
   frontend:
     build: ./frontend
-    container_name: celtics_web
+    container_name: nbahub_web
     restart: always
     ports:
       - "80:80"

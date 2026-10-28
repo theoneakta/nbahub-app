@@ -3,7 +3,8 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Celtics Hub — 2026 Season Tracker</title>
+  <title>NBA Hub — Celtics 2026 Season Tracker</title>
+  <link rel="icon" type="image/svg+xml" href="logo.svg">
   <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=DM+Sans:wght@300;400;500;600&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
   <style>
     :root {
@@ -27,6 +28,10 @@
     .count-item { text-align: center; }
     .count-val { font-family: 'Bebas Neue'; font-size: 32px; line-height: 1; display: block; }
     .count-lbl { font-size: 9px; color: var(--muted); }
+
+    .brand { display: flex; align-items: center; gap: 12px; font-family: 'Bebas Neue', sans-serif; font-size: 44px; line-height: 1; letter-spacing: 1px; margin-bottom: 24px; }
+    .brand span { color: #c8102e; }
+    .brand-logo { height: 64px; width: auto; }
 
     /* Previous Roster Styles */
     .header { display: flex; align-items: flex-end; justify-content: space-between; margin-bottom: 20px; }
@@ -64,6 +69,7 @@
 <body>
 
 <div class="wrap">
+  <div class="brand"><img class="brand-logo" src="logo.svg" alt=""><div>NBA <span>HUB</span></div></div>
   <div class="season-tracker">
     <div class="tracker-box">
       <div class="tracker-title">Last 3 Games</div>

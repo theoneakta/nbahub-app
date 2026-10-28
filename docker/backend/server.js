@@ -426,7 +426,7 @@ app.get('/api/schedule', async (req, res) => {
 
 // ─── START + CRON ─────────────────────────────────────────────────────────────
 app.listen(3000, () => {
-  console.log('Celtics API running on port 3000');
+  console.log('NBA Hub API running on port 3000');
   startApp();
 });
 

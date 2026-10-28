@@ -1,4 +1,4 @@
-// Celtics roster API for IIS 7.5 / ASP.NET 2.0-3.5 (compiled on the fly from App_Code; C# 2.0 syntax).
+// NBA Hub API for IIS 7.5 / ASP.NET 2.0-3.5 (compiled on the fly from App_Code; C# 2.0 syntax).
 // Same JSON shapes as the original Node/Express backend. Read-only: the feeder on .8 writes the data.
 using System;
 using System.Collections.Generic;
@@ -7,7 +7,7 @@ using System.Data.SqlClient;
 using System.Web;
 using System.Web.Script.Serialization;
 
-namespace Celtics
+namespace NbaHub
 {
     public abstract class JsonHandler : IHttpHandler
     {

@@ -4,6 +4,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>NBA Hub — Roster &amp; Stats</title>
+  <link rel="icon" type="image/svg+xml" href="logo.svg">
   <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=DM+Sans:wght@300;400;500;600&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
   <style>
     :root {
@@ -15,8 +16,9 @@
     .wrap { max-width: 960px; margin: 0 auto; }
 
     .topbar { display: flex; align-items: center; justify-content: space-between; margin-bottom: 28px; gap: 16px; flex-wrap: wrap; }
-    .brand { font-family: 'Bebas Neue', sans-serif; font-size: 44px; line-height: 1; letter-spacing: 1px; }
+    .brand { display: flex; align-items: center; gap: 12px; font-family: 'Bebas Neue', sans-serif; font-size: 44px; line-height: 1; letter-spacing: 1px; }
     .brand span { color: var(--accent); }
+    .brand-logo { height: 64px; width: auto; }
     .year-toggle { display: inline-flex; background: var(--surface); border: 1px solid var(--border); border-radius: 99px; padding: 4px; }
     .yt { font-family: 'Bebas Neue', sans-serif; font-size: 20px; letter-spacing: .5px; background: none; border: none; color: var(--muted); padding: 6px 18px; border-radius: 99px; cursor: pointer; transition: .2s; }
     .yt.active { background: var(--accent); color: #fff; }
@@ -86,7 +88,7 @@
 <body>
 <div class="wrap">
   <div class="topbar">
-    <div class="brand">NBA <span>HUB</span></div>
+    <div class="brand"><img class="brand-logo" src="logo.svg" alt=""><div>NBA <span>HUB</span></div></div>
     <div class="year-toggle" id="yearToggle"></div>
   </div>
 
