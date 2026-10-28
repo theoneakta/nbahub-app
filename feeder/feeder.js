@@ -23,10 +23,6 @@ const db = new sql.ConnectionPool({
 const ESPN_HEAD = 'https://a.espncdn.com/i/headshots/nba/players/full/';
 const BREF_HEAD = 'https://www.basketball-reference.com/req/202106291/images/headshots/';
 const NBAAPI_ABBR = { BKN: 'BRK', CHA: 'CHO', GS: 'GSW', NO: 'NOP', NY: 'NYK', PHX: 'PHO', SA: 'SAS', UTAH: 'UTA', WSH: 'WAS' };
-// Fallback MVP names if a season has no stats yet (e.g. opening week). Normally the contenders are
-// computed per season from nbaapi stats, so each year differs.
-const mvpFallback = ['Victor Wembanyama', 'Shai Gilgeous-Alexander', 'Nikola Jokic', 'Luka Doncic', 'Jaylen Brown'];
-
 function currentSeasonEndYear(d = new Date()) { return (d.getMonth() + 1) >= 10 ? d.getFullYear() + 1 : d.getFullYear(); }
 const SEASONS = (process.env.NBA_SEASONS || String(process.env.NBA_SEASON || currentSeasonEndYear()))
   .split(',').map(s => parseInt(s.trim(), 10)).filter(Boolean);
@@ -84,8 +80,9 @@ async function fetchTotals(nbaapiAbbr, season) {
 
 // ESPN per-game stats for every player in a season, keyed by ESPN athlete id. nbaapi.com lags the live
 // season by weeks (it had nothing for 2026-27 in late October), so this is the current season's main source.
+// Returns { byId: stats rows for the roster, list: per-game numbers for the MVP race and leaders }.
 async function fetchEspnStats(season) {
-  const m = {};
+  const byId = {}, list = [];
   try {
     for (let page = 1; page <= 10; page++) {
       const res = await axios.get('https://site.web.api.espn.com/apis/common/v3/sports/basketball/nba/statistics/byathlete',
@@ -96,13 +93,19 @@ async function fetchEspnStats(season) {
         const v = {};
         for (const c of a.categories || []) (names[c.name] || []).forEach((n, i) => { v[n] = (c.totals || c.values || [])[i]; });
         const fmt = (x) => parseFloat(x || 0).toFixed(1);
-        m[String(a.athlete?.id)] = { ppg: fmt(v.avgPoints), rpg: fmt(v.avgRebounds), apg: fmt(v.avgAssists), spg: fmt(v.avgSteals), bpg: fmt(v.avgBlocks),
+        byId[String(a.athlete?.id)] = { ppg: fmt(v.avgPoints), rpg: fmt(v.avgRebounds), apg: fmt(v.avgAssists), spg: fmt(v.avgSteals), bpg: fmt(v.avgBlocks),
           mpg: fmt(v.minutes), fgp: fmt(v.fieldGoalPct), tpp: fmt(v.threePointFieldGoalPct), ftp: fmt(v.freeThrowPct), gp: String(parseInt(v.gamesPlayed || 0, 10)) };
+        const n = (x) => parseFloat(x || 0);
+        list.push({ name: a.athlete?.displayName, team: a.athlete?.teamShortName || '—', gp: parseInt(v.gamesPlayed || 0, 10),
+          pts: n(v.avgPoints), reb: n(v.avgRebounds), ast: n(v.avgAssists), stl: n(v.avgSteals), blk: n(v.avgBlocks),
+          // NBA efficiency (EFF) per game: PTS + REB + AST + STL + BLK - missed FG - missed FT - TOV
+          eff: n(v.avgPoints) + n(v.avgRebounds) + n(v.avgAssists) + n(v.avgSteals) + n(v.avgBlocks)
+               - (n(v.avgFieldGoalsAttempted) - n(v.avgFieldGoalsMade)) - (n(v.avgFreeThrowsAttempted) - n(v.avgFreeThrowsMade)) - n(v.avgTurnovers) });
       }
       if (page >= (res.data?.pagination?.pages || 1)) break;
     }
   } catch (err) { console.error('  ESPN stats fetch failed:', err.message); }
-  return m;
+  return { byId, list };
 }
 
 async function getSeasonPlayers(team, season, espnStats = {}) {
@@ -174,17 +177,15 @@ async function fetchAdvanced(season) {
 
 // Per-season awards. Voted NBA awards aren't in the data source, so these are derived from the stats:
 //   MVP / Offensive POY / Defensive POY from win shares (overall / offensive / defensive),
-//   plus the statistical leader in each box-score category. Falls back to a static MVP list with no stats yet.
-function seasonAwards(season, totals, advanced) {
+//   plus the statistical leader in each box-score category. Without win shares yet, falls back to espnAwards().
+function seasonAwards(season, totals, advanced, espn = []) {
   const totMap = {}; for (const p of totals) totMap[normalize(p.playerName)] = perGame(p);
   const maxG = advanced.reduce((m, p) => Math.max(m, parseInt(p.games || 0, 10)), 0);
   const minG = Math.max(10, Math.floor(maxG * 0.5));
   const adv = advanced.map(p => ({ name: p.playerName, team: p.team, gp: parseInt(p.games || 0, 10),
     ws: parseFloat(p.winShares || 0), ows: parseFloat(p.offensiveWS || 0), dws: parseFloat(p.defensiveWS || 0) })).filter(p => p.gp >= minG);
   const q = totals.map(perGame).filter(p => p.gp >= minG);
-  if (!adv.length || !q.length) {
-    return { contenders: mvpFallback.map((n, i) => ({ rank: i + 1, name: n, team: '—', ppg: '—', rpg: '—', apg: '—' })), leaders: [] };
-  }
+  if (!adv.length || !q.length) return espnAwards(espn);
   const byWs = adv.slice().sort((a, b) => b.ws - a.ws);
   const contenders = byWs.slice(0, 5).map((p, i) => { const t = totMap[normalize(p.name)];
     return { rank: i + 1, name: p.name, team: p.team, ppg: t ? t.pts.toFixed(1) : '—', rpg: t ? t.reb.toFixed(1) : '—', apg: t ? t.ast.toFixed(1) : '—' }; });
@@ -200,6 +201,20 @@ function seasonAwards(season, totals, advanced) {
     pgAward('Steals', 'stl', 'SPG'), pgAward('Blocks', 'blk', 'BPG'),
   ];
   return { contenders, leaders };
+}
+
+// Early in a season nbaapi.com has no win shares yet: rank the MVP race by per-game efficiency (EFF) from ESPN,
+// and give per-game leaders. No data at all -> empty lists (the page says so) rather than made-up names.
+function espnAwards(espn) {
+  const maxG = espn.reduce((m, p) => Math.max(m, p.gp), 0);
+  const q = espn.filter(p => p.gp >= Math.max(1, Math.floor(maxG * 0.5)));
+  if (!q.length) return { contenders: [], leaders: [] };
+  const top = (key) => q.slice().sort((a, b) => b[key] - a[key])[0];
+  const award = (label, key, unit) => { const p = top(key); return { category: label, name: p.name, team: p.team, value: p[key].toFixed(1) + ' ' + unit }; };
+  const contenders = q.slice().sort((a, b) => b.eff - a.eff).slice(0, 5).map((p, i) =>
+    ({ rank: i + 1, name: p.name, team: p.team, ppg: p.pts.toFixed(1), rpg: p.reb.toFixed(1), apg: p.ast.toFixed(1) }));
+  return { contenders, leaders: [award('Efficiency', 'eff', 'EFF'), award('Points', 'pts', 'PPG'), award('Rebounds', 'reb', 'RPG'),
+    award('Assists', 'ast', 'APG'), award('Steals', 'stl', 'SPG'), award('Blocks', 'blk', 'BPG')] };
 }
 
 const q = (text, params = {}) => { const r = db.request(); for (const [k, v] of Object.entries(params)) r.input(k, v); return r.query(text); };
@@ -241,10 +256,10 @@ async function sync(seasons = SEASONS) {
   for (const t of teams) { try { await upsertTeam(t); } catch (err) { console.error(`  team ${t.abbr} meta failed: ${err.message}`); } }
   for (const season of seasons) {
     let players = 0, done = 0;
-    const espnStats = season === currentSeasonEndYear() ? await fetchEspnStats(season) : {};
-    if (season === currentSeasonEndYear()) console.log(`  ESPN stats for ${Object.keys(espnStats).length} players`);
-    for (const t of teams) { players += await syncTeamSeason(t, season, espnStats); done++; await sleep(120); }
-    const { contenders, leaders } = seasonAwards(season, await fetchLeague(season), await fetchAdvanced(season));
+    const espn = season === currentSeasonEndYear() ? await fetchEspnStats(season) : { byId: {}, list: [] };
+    if (season === currentSeasonEndYear()) console.log(`  ESPN stats for ${espn.list.length} players`);
+    for (const t of teams) { players += await syncTeamSeason(t, season, espn.byId); done++; await sleep(120); }
+    const { contenders, leaders } = seasonAwards(season, await fetchLeague(season), await fetchAdvanced(season), espn.list);
     await q('DELETE FROM dbo.mvp_contenders WHERE season = @season', { season });
     for (const m of contenders) await q('INSERT dbo.mvp_contenders(season, [rank], name, team, ppg, rpg, apg) VALUES(@season, @rank, @name, @team, @ppg, @rpg, @apg)', { season, ...m });
     await q('DELETE FROM dbo.leaders WHERE season = @season', { season });

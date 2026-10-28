@@ -102,7 +102,7 @@
 
     <div class="mvp-section">
       <div class="mvp-title">🏆 MVP Contenders <span id="mvp-home-season" style="color:var(--accent);font-size:20px;"></span></div>
-      <div class="mvp-sub">Top 5 by Win Shares, league-wide</div>
+      <div class="mvp-sub">Top 5 by Win Shares, league-wide (early season, before win shares exist: by per-game efficiency)</div>
       <div class="mvp-list" id="mvp-list-home"></div>
     </div>
   </div>
@@ -140,7 +140,7 @@
 
     <div class="mvp-section">
       <div class="mvp-title">🏆 MVP Contenders</div>
-      <div class="mvp-sub">Top 5 by Win Shares, league-wide</div>
+      <div class="mvp-sub">Top 5 by Win Shares, league-wide (early season, before win shares exist: by per-game efficiency)</div>
       <div class="mvp-list" id="mvp-list"></div>
     </div>
   </div>
@@ -281,6 +281,7 @@ async function loadMvp(qs, targetId) {
   try {
     const c = await jget('/api/mvp' + qs);
     const rank = ['gold', 'silver', 'bronze'];
+    if (!c.length) { document.getElementById(targetId).innerHTML = '<p style="color:var(--muted);font-size:13px">No stats for this season yet.</p>'; return; }
     document.getElementById(targetId).innerHTML = c.map((p, i) => `
       <div class="mvp-row">
         <div class="mvp-rank ${rank[i] || ''}">${p.rank}</div>
