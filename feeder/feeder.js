@@ -82,12 +82,36 @@ async function fetchTotals(nbaapiAbbr, season) {
   } catch (err) { return []; }
 }
 
-async function getSeasonPlayers(team, season) {
+// ESPN per-game stats for every player in a season, keyed by ESPN athlete id. nbaapi.com lags the live
+// season by weeks (it had nothing for 2026-27 in late October), so this is the current season's main source.
+async function fetchEspnStats(season) {
+  const m = {};
+  try {
+    for (let page = 1; page <= 10; page++) {
+      const res = await axios.get('https://site.web.api.espn.com/apis/common/v3/sports/basketball/nba/statistics/byathlete',
+        { params: { region: 'us', lang: 'en', contentorigin: 'espn', isqualified: false, season, seasontype: 2, limit: 200, page }, timeout: 20000 });
+      const names = {};
+      for (const c of res.data?.categories || []) names[c.name] = c.names || [];
+      for (const a of res.data?.athletes || []) {
+        const v = {};
+        for (const c of a.categories || []) (names[c.name] || []).forEach((n, i) => { v[n] = (c.totals || c.values || [])[i]; });
+        const fmt = (x) => parseFloat(x || 0).toFixed(1);
+        m[String(a.athlete?.id)] = { ppg: fmt(v.avgPoints), rpg: fmt(v.avgRebounds), apg: fmt(v.avgAssists), spg: fmt(v.avgSteals), bpg: fmt(v.avgBlocks),
+          mpg: fmt(v.minutes), fgp: fmt(v.fieldGoalPct), tpp: fmt(v.threePointFieldGoalPct), ftp: fmt(v.freeThrowPct), gp: String(parseInt(v.gamesPlayed || 0, 10)) };
+      }
+      if (page >= (res.data?.pagination?.pages || 1)) break;
+    }
+  } catch (err) { console.error('  ESPN stats fetch failed:', err.message); }
+  return m;
+}
+
+async function getSeasonPlayers(team, season, espnStats = {}) {
   if (season === currentSeasonEndYear()) {
     const roster = await fetchRoster(team.id);
     const statsMap = {};
     for (const p of await fetchTotals(team.nbaapi, season)) statsMap[normalize(p.playerName)] = extractStats(p);
-    return roster.map(r => ({ ...r, photo: r.espnId ? ESPN_HEAD + r.espnId + '.png' : '', stats: statsMap[normalize(r.name)] || ZERO }));
+    return roster.map(r => ({ ...r, photo: r.espnId ? ESPN_HEAD + r.espnId + '.png' : '',
+      stats: espnStats[r.espnId] || statsMap[normalize(r.name)] || ZERO }));
   }
   return (await fetchTotals(team.nbaapi, season)).map(p => ({
     num: '', name: p.playerName, pos: p.position || '', espnId: '', photo: p.playerId ? BREF_HEAD + p.playerId + '.jpg' : '', injury: null, injuryDetail: null, stats: extractStats(p) }));
@@ -186,10 +210,10 @@ async function upsertTeam(t) {
     { abbr: t.abbr, name: t.name, logo: t.logo, espn: parseInt(t.id, 10), nba: t.nbaapi });
 }
 
-async function syncTeamSeason(team, season) {
+async function syncTeamSeason(team, season, espnStats) {
   await q('UPDATE dbo.players SET updated_at = NULL WHERE season = @season AND team = @team', { season, team: team.abbr });
   let roster;
-  try { roster = await getSeasonPlayers(team, season); } catch (err) { console.error(`  ${team.abbr} ${season} roster failed: ${err.message}`); return 0; }
+  try { roster = await getSeasonPlayers(team, season, espnStats); } catch (err) { console.error(`  ${team.abbr} ${season} roster failed: ${err.message}`); return 0; }
   if (!roster.length) return 0;  // keep whatever is there rather than wiping
   for (const p of roster) {
     await q(`UPDATE dbo.players SET num=@num, pos=@pos, espn_id=@espn, photo=@photo, ppg=@ppg, rpg=@rpg, apg=@apg, spg=@spg, bpg=@bpg,
@@ -217,7 +241,9 @@ async function sync(seasons = SEASONS) {
   for (const t of teams) { try { await upsertTeam(t); } catch (err) { console.error(`  team ${t.abbr} meta failed: ${err.message}`); } }
   for (const season of seasons) {
     let players = 0, done = 0;
-    for (const t of teams) { players += await syncTeamSeason(t, season); done++; await sleep(120); }
+    const espnStats = season === currentSeasonEndYear() ? await fetchEspnStats(season) : {};
+    if (season === currentSeasonEndYear()) console.log(`  ESPN stats for ${Object.keys(espnStats).length} players`);
+    for (const t of teams) { players += await syncTeamSeason(t, season, espnStats); done++; await sleep(120); }
     const { contenders, leaders } = seasonAwards(season, await fetchLeague(season), await fetchAdvanced(season));
     await q('DELETE FROM dbo.mvp_contenders WHERE season = @season', { season });
     for (const m of contenders) await q('INSERT dbo.mvp_contenders(season, [rank], name, team, ppg, rpg, apg) VALUES(@season, @rank, @name, @team, @ppg, @rpg, @apg)', { season, ...m });
